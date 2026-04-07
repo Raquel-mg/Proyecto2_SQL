@@ -194,10 +194,10 @@ SELECT
     f.title,
     COUNT(i.inventory_id) AS cantidad_disponible
 FROM film f
-INNER JOIN inventory i 
+LEFT JOIN inventory i
     ON f.film_id = i.film_id
-GROUP BY f.film_id
-ORDER BY f.title;
+GROUP BY f.film_id, f.title
+ORDER BY cantidad_disponible DESC;
 
 -- 30. Obtener los actores y el número de películas en las que ha actuado
 SELECT
@@ -334,15 +334,17 @@ CROSS JOIN "category" AS c;
 	-- Produce muchas combinaciones artificiales, genera resultados poco útiles y una consulta más pesada.
 
 -- 45.  Encuentra los actores que han participado en películas de la categoría 'Action'.
-SELECT CONCAT(a."first_name", ' ', a."last_name") AS nombre_actores, fc."category_id"
+SELECT DISTINCT
+    CONCAT(a."first_name", ' ', a."last_name") AS nombre_actores
 FROM "actor" AS a
-INNER JOIN "film_actor" AS  fa 
-	ON a."actor_id" = fa."actor_id"
-INNER JOIN "film" AS f 
-	ON fa."film_id" = f."film_id"
+INNER JOIN "film_actor" AS fa
+    ON a."actor_id" = fa."actor_id"
 INNER JOIN "film_category" AS fc
-	ON f."film_id" = fc."film_id"
-WHERE fc."category_id" = 1; -- Pongo category_id igual a 1 porque el id 1 equivale a la categoría 'Action'.
+    ON fa."film_id" = fc."film_id"
+INNER JOIN "category" AS c
+    ON fc."category_id" = c."category_id"
+WHERE c."name" = 'Action'
+ORDER BY nombre_actores;
 
 -- 46.  Encuentra todos los actores que no han participado en películas
 select "first_name", "last_name"
@@ -388,32 +390,26 @@ ORDER BY total_alquileres DESC;
 
 -- 50. Calcula la duración total de las películas en la categoría 'Action'.
 SELECT 
-	SUM(f."length")
+    SUM(f."length") AS duracion_total
 FROM "film" AS f
 INNER JOIN "film_category" AS fc
-	ON f."film_id" = fc."film_id"
-WHERE fc."category_id" = 1;
-
-SELECT 
-	f."title",
-	f."length"
-FROM "film" AS f
-INNER JOIN "film_category" AS fc
-	ON f."film_id" = fc."film_id"
-WHERE fc."category_id" = 1
-ORDER BY "length" DESC;
+    ON f."film_id" = fc."film_id"
+INNER JOIN "category" AS c
+    ON fc."category_id" = c."category_id"
+WHERE c."name" = 'Action';
 
 -- 51. Crea una tabla temporal llamada “cliente_rentas_temporalˮ para almacenar el total de alquileres por cliente.
-WITH cliente_rentas_temporal AS (
-    SELECT 
-    	r."customer_id", 
-    	CONCAT(c."first_name", ' ', c."last_name") AS nombre_cliente, 
-    	COUNT(r."rental_id") AS alquiler_cliente
-    FROM "rental" AS r
-    INNER JOIN "customer" AS c
-    	ON r."customer_id" = c."customer_id"
-    GROUP BY r."customer_id", c."first_name", c."last_name")
-SELECT "customer_id", nombre_cliente, alquiler_cliente
+CREATE TEMP TABLE cliente_rentas_temporal AS
+SELECT 
+    r."customer_id",
+    CONCAT(c."first_name", ' ', c."last_name") AS nombre_cliente,
+    COUNT(r."rental_id") AS alquiler_cliente
+FROM "rental" AS r
+INNER JOIN "customer" AS c
+    ON r."customer_id" = c."customer_id"
+GROUP BY r."customer_id", c."first_name", c."last_name";
+
+SELECT *
 FROM cliente_rentas_temporal;
 
 -- 52. Crea una tabla temporal llamada “peliculas_alquiladasˮ que almacene las películas que han sido alquiladas al menos 10 veces.
@@ -532,7 +528,7 @@ JOIN "rental" AS r
 JOIN "inventory" AS i
     ON r."inventory_id" = i."inventory_id"
 GROUP BY c."customer_id", c."first_name", c."last_name"
-HAVING COUNT(DISTINCT i."film_id") >= 20
+HAVING COUNT(DISTINCT i."film_id") >= 7
 ORDER BY c."last_name";
 
 -- 61.  Encuentra la cantidad total de películas alquiladas por categoría y muestra el nombre de la categoría junto con el recuento de alquileres.
